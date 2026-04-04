@@ -1,5 +1,6 @@
-import { translationMatrix, type vec3, type mat4 } from './math';
+import { translationMatrix, mat4Multiply, quatToMat4, type vec3, type mat4 } from './math';
 import type { PlaneModel } from './models/PlaneModel';
+import { type PhysicsState, makePhysicsState } from './physics';
 
 type vec4 = [number, number, number, number];
 
@@ -7,7 +8,7 @@ type vec4 = [number, number, number, number];
 const UNIFORM_BYTES = 80;
 
 export class Node {
-  readonly position: vec3;
+  readonly physics: PhysicsState;
   readonly color: vec4;
   readonly model: PlaneModel;
 
@@ -15,10 +16,10 @@ export class Node {
   private uniformBuffer!: GPUBuffer;
   private bindGroup!: GPUBindGroup;
 
-  constructor(model: PlaneModel, position: vec3, color: vec4) {
-    this.model    = model;
-    this.position = position;
-    this.color    = color;
+  constructor(model: PlaneModel, home: vec3, color: vec4, seed: number) {
+    this.model   = model;
+    this.color   = color;
+    this.physics = makePhysicsState(home, seed);
   }
 
   init(device: GPUDevice, layout: GPUBindGroupLayout): void {
@@ -34,7 +35,9 @@ export class Node {
   }
 
   worldMatrix(): mat4 {
-    return translationMatrix(this.position[0], this.position[1], this.position[2]);
+    const r = quatToMat4(this.physics.rot);
+    const t = translationMatrix(this.physics.pos[0], this.physics.pos[1], this.physics.pos[2]);
+    return mat4Multiply(t, r);
   }
 
   draw(passEncoder: GPURenderPassEncoder): void {

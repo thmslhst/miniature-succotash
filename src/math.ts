@@ -1,5 +1,38 @@
 export type vec3 = [number, number, number];
 export type mat4 = Float32Array<ArrayBuffer>;
+export type quat = Float32Array<ArrayBuffer>; // [x, y, z, w]
+
+export function quatIdentity(): quat {
+  const q = new Float32Array(4);
+  q[3] = 1;
+  return q;
+}
+
+// Hamilton product: a * b
+export function quatMultiply(a: quat, b: quat): quat {
+  return new Float32Array([
+    a[3]*b[0] + a[0]*b[3] + a[1]*b[2] - a[2]*b[1],
+    a[3]*b[1] - a[0]*b[2] + a[1]*b[3] + a[2]*b[0],
+    a[3]*b[2] + a[0]*b[1] - a[1]*b[0] + a[2]*b[3],
+    a[3]*b[3] - a[0]*b[0] - a[1]*b[1] - a[2]*b[2],
+  ]);
+}
+
+export function quatNormalize(q: quat): void {
+  const len = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+  if (len > 1e-8) { q[0] /= len; q[1] /= len; q[2] /= len; q[3] /= len; }
+}
+
+// Column-major rotation matrix from quaternion [x,y,z,w]
+export function quatToMat4(q: quat): mat4 {
+  const x = q[0], y = q[1], z = q[2], w = q[3];
+  const m = new Float32Array(16);
+  m[0]  = 1 - 2*(y*y + z*z);  m[1]  = 2*(x*y + w*z);      m[2]  = 2*(x*z - w*y);
+  m[4]  = 2*(x*y - w*z);      m[5]  = 1 - 2*(x*x + z*z);  m[6]  = 2*(y*z + w*x);
+  m[8]  = 2*(x*z + w*y);      m[9]  = 2*(y*z - w*x);      m[10] = 1 - 2*(x*x + y*y);
+  m[15] = 1;
+  return m;
+}
 
 export function mat4Identity(): mat4 {
   const m = new Float32Array(16);

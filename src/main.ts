@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 
   const positions = fibonacciSphere(NODE_COUNT, SCENE_RADIUS);
   const nodes = positions.map((pos, i) => {
-    const node = new Node(models[i % 3], pos, COLORS[i % 3]);
+    const node = new Node(models[i % 3], pos, COLORS[i % 3], i * 1.7);
     node.init(renderer.device, renderer.nodeBindGroupLayout);
     return node;
   });
@@ -66,6 +66,7 @@ async function main(): Promise<void> {
     const dt = now - prev;
     prev = now;
     camera.tick(dt);
+    scene.tick(dt, now);
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
   }
