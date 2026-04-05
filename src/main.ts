@@ -13,9 +13,9 @@ const NODE_COUNT   = 12;
 const SCENE_RADIUS = 5.0;
 
 const COLORS: vec4[] = [
-  [0.50, 0.85, 1.00, 1.0], // ShardModel   — cool blue
-  [0.40, 1.00, 0.55, 1.0], // LatticeModel — green
-  [1.00, 0.65, 0.30, 1.0], // MandalaMdl   — warm amber
+  [0.06, 0.06, 0.06, 1.0], // ShardModel
+  [0.06, 0.06, 0.06, 1.0], // LatticeModel
+  [0.06, 0.06, 0.06, 1.0], // MandalaMdl
 ];
 
 function fibonacciSphere(n: number, r: number): vec3[] {
