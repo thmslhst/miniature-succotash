@@ -1,6 +1,6 @@
 import type { Node } from './node';
 
-export const CONNECTION_RADIUS = 4.5;
+export const CONNECTION_RADIUS = 8.0;
 
 export class Connection {
   readonly a: Node;
@@ -25,7 +25,7 @@ export class Connection {
     if (d >= CONNECTION_RADIUS) return 0;
     const t = 1 - d / CONNECTION_RADIUS;
     // Low entropy: soft quadratic falloff; high entropy: washed-out linear
-    return (1 - entropy) * 0.4 * t * t + entropy * 0.15 * t;
+    return (1 - entropy) * 0.75 * t * t + entropy * 0.35 * t;
   }
 
   // Writes 8 floats into buf at offset: [x0,y0,z0,alpha, x1,y1,z1,alpha]
