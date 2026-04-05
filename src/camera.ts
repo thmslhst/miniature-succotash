@@ -25,8 +25,8 @@ export class Camera {
     this.aspect = aspect;
   }
 
-  tick(dt: number): void {
-    this.azimuth += ORBIT_SPEED * dt;
+  tick(_dt: number): void {
+    // no auto-orbit
   }
 
   private eye(): vec3 {

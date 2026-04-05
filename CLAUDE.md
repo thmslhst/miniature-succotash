@@ -209,11 +209,7 @@ const SCENE_RADIUS     = 5.0;    // home positions distributed in this sphere
 - Add `PhysicsState` to nodes. Float, spring, damping. Entropy ramp.
 - Nodes drift and rotate. Connection lines appear.
 
-### Phase 3 — Interaction
-- Mouse/pointer in 3D: unproject cursor ray, repulsion force on nearby nodes.
-- Entropy can spike on click/drag.
-
-### Phase 4 — Material / texture
+### Phase 3 — Material / texture
 - Replace flat wireframe color with texture-mapped planes (UV per vertex).
 - Each model type gets its own texture.
 

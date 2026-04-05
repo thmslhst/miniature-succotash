@@ -1,4 +1,4 @@
-import { quatIdentity, quatMultiply, quatNormalize, type vec3, type quat } from './math';
+import { quatIdentity, type vec3, type quat } from './math';
 
 export const FLOAT_AMP = 0.35;
 export const SPRING    = 0.06;
@@ -55,18 +55,5 @@ export function integratePhysics(state: PhysicsState, dt: number, t: number, ent
   state.pos[1] += state.vel[1] * dtS;
   state.pos[2] += state.vel[2] * dtS;
 
-  // Rotation: apply angular velocity scaled by entropy
-  const scale = (1 + entropy * 1.2) * dtS;
-  const ax = state.angVel[0] * scale;
-  const ay = state.angVel[1] * scale;
-  const az = state.angVel[2] * scale;
-  const angle = Math.sqrt(ax*ax + ay*ay + az*az);
-  if (angle > 1e-8) {
-    const halfAngle = angle * 0.5;
-    const sinH = Math.sin(halfAngle) / angle;
-    const dq = new Float32Array([ax * sinH, ay * sinH, az * sinH, Math.cos(halfAngle)]);
-    const next = quatMultiply(state.rot, dq);
-    state.rot.set(next);
-    quatNormalize(state.rot);
-  }
+  // Rotation disabled
 }
