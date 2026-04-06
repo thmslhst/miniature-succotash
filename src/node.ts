@@ -40,13 +40,26 @@ export class Node {
     return mat4Multiply(t, r);
   }
 
-  draw(passEncoder: GPURenderPassEncoder): void {
+  private writeUniforms(): void {
     const data = new Float32Array(20);
     data.set(this.worldMatrix(), 0);
     data.set(this.color, 16);
     this.device.queue.writeBuffer(this.uniformBuffer, 0, data);
+  }
+
+  draw(passEncoder: GPURenderPassEncoder): void {
+    this.writeUniforms();
     passEncoder.setBindGroup(1, this.bindGroup);
     passEncoder.setVertexBuffer(0, this.model.edgeBuffer);
     passEncoder.draw(this.model.edgeCount * 2);
+  }
+
+  drawFaces(passEncoder: GPURenderPassEncoder): void {
+    if (!this.model.faceBuffer || !this.model.faceBindGroup) return;
+    this.writeUniforms();
+    passEncoder.setBindGroup(1, this.bindGroup);
+    passEncoder.setBindGroup(2, this.model.faceBindGroup);
+    passEncoder.setVertexBuffer(0, this.model.faceBuffer);
+    passEncoder.draw(this.model.faceCount * 3);
   }
 }

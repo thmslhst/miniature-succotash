@@ -37,6 +37,7 @@ async function main(): Promise<void> {
 
   const model = new OphanModel();
   model.init(renderer.device);
+  model.initFaces(renderer.device, renderer.texBindGroupLayout);
 
   const positions = fibonacciSphere(NODE_COUNT, SCENE_RADIUS);
   const nodes = positions.map((pos, i) => {

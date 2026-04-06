@@ -1,5 +1,6 @@
 import wireframeWGSL  from './shaders/wireframe.wgsl?raw';
 import connectionWGSL from './shaders/connection.wgsl?raw';
+import texturedWGSL   from './shaders/textured.wgsl?raw';
 import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
@@ -10,10 +11,12 @@ const MAX_CONNECTIONS = 66;
 export class Renderer {
   device!: GPUDevice;
   nodeBindGroupLayout!: GPUBindGroupLayout;
+  texBindGroupLayout!:  GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for model faces
 
   private context!: GPUCanvasContext;
-  private wirePipeline!: GPURenderPipeline;
-  private connPipeline!: GPURenderPipeline;
+  private wirePipeline!:  GPURenderPipeline;
+  private connPipeline!:  GPURenderPipeline;
+  private texPipeline!:   GPURenderPipeline;
   private sharedUniformBuffer!: GPUBuffer;
   private sharedBindGroup!: GPUBindGroup;
   private connVertexBuffer!: GPUBuffer;
@@ -34,16 +37,12 @@ export class Renderer {
     this.initPipelines();
   }
 
-  resize(w: number, h: number): void {
-    this.initDepth(w, h);
-  }
+  resize(w: number, h: number): void { this.initDepth(w, h); }
 
   private initDepth(w: number, h: number): void {
     this.depthTexture?.destroy();
     this.depthTexture = this.device.createTexture({
-      size:   [w, h],
-      format: 'depth24plus',
-      usage:  GPUTextureUsage.RENDER_ATTACHMENT,
+      size: [w, h], format: 'depth24plus', usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
   }
 
@@ -53,6 +52,12 @@ export class Renderer {
     });
     this.nodeBindGroupLayout = this.device.createBindGroupLayout({
       entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }],
+    });
+    this.texBindGroupLayout = this.device.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler:  {} },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
+      ],
     });
 
     // Wireframe pipeline (nodes)
@@ -68,32 +73,52 @@ export class Renderer {
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
     });
 
-    // Connection pipeline — per-vertex alpha, no depth write (draw through)
+    // Connection pipeline — per-vertex alpha, no depth write
     const connMod = this.device.createShaderModule({ code: connectionWGSL });
     this.connPipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({ bindGroupLayouts: [bgl0] }),
       vertex: {
         module: connMod, entryPoint: 'vs',
-        buffers: [{
-          arrayStride: 16,
-          attributes: [
-            { shaderLocation: 0, offset: 0,  format: 'float32x3' },
-            { shaderLocation: 1, offset: 12, format: 'float32'   },
-          ],
-        }],
+        buffers: [{ arrayStride: 16, attributes: [
+          { shaderLocation: 0, offset: 0,  format: 'float32x3' },
+          { shaderLocation: 1, offset: 12, format: 'float32'   },
+        ]}],
       },
       fragment: {
         module: connMod, entryPoint: 'fs',
-        targets: [{
-          format: this.canvasFormat,
-          blend: {
-            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-            alpha: { srcFactor: 'one',       dstFactor: 'zero',                operation: 'add' },
-          },
-        }],
+        targets: [{ format: this.canvasFormat, blend: {
+          color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+          alpha: { srcFactor: 'one',       dstFactor: 'zero',                operation: 'add' },
+        }}],
       },
       primitive:    { topology: 'line-list' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' },
+    });
+
+    // Textured face pipeline — alpha-blended triangles, depth-tested but no depth write
+    const texMod = this.device.createShaderModule({ code: texturedWGSL });
+    this.texPipeline = this.device.createRenderPipeline({
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [bgl0, this.nodeBindGroupLayout, this.texBindGroupLayout],
+      }),
+      vertex: {
+        module: texMod, entryPoint: 'vs',
+        buffers: [{ arrayStride: 20, attributes: [
+          { shaderLocation: 0, offset: 0,  format: 'float32x3' },
+          { shaderLocation: 1, offset: 12, format: 'float32x2' },
+        ]}],
+      },
+      fragment: {
+        module: texMod, entryPoint: 'fs',
+        targets: [{ format: this.canvasFormat, blend: {
+          color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+          alpha: { srcFactor: 'one',       dstFactor: 'zero',                operation: 'add' },
+        }}],
+      },
+      primitive:    { topology: 'triangle-list', cullMode: 'none' },
+      // Depth bias pushes faces back so wireframe edges always win
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal',
+                      depthBias: 2, depthBiasSlopeScale: 1.0 },
     });
 
     // Shared view/proj uniform
@@ -107,8 +132,7 @@ export class Renderer {
 
     // Dynamic connection vertex buffer
     this.connVertexBuffer = this.device.createBuffer({
-      size:  MAX_CONNECTIONS * 8 * 4, // floats × 4 bytes
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      size: MAX_CONNECTIONS * 8 * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
   }
 
@@ -119,20 +143,17 @@ export class Renderer {
     const encoder = this.device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
       colorAttachments: [{
-        view:       this.context.getCurrentTexture().createView(),
+        view: this.context.getCurrentTexture().createView(),
         clearValue: { r: 0.22, g: 0.22, b: 0.22, a: 1 },
-        loadOp:     'clear',
-        storeOp:    'store',
+        loadOp: 'clear', storeOp: 'store',
       }],
       depthStencilAttachment: {
-        view:            this.depthTexture.createView(),
-        depthClearValue: 1,
-        depthLoadOp:     'clear',
-        depthStoreOp:    'store',
+        view: this.depthTexture.createView(),
+        depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store',
       },
     });
 
-    // Draw connections first (no depth write, always-through)
+    // 1 — Connections (no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch);
     if (connCount > 0) {
       this.device.queue.writeBuffer(this.connVertexBuffer, 0, this.connScratch.subarray(0, connCount * 8));
@@ -142,10 +163,15 @@ export class Renderer {
       pass.draw(connCount * 2);
     }
 
-    // Draw node wireframes
+    // 2 — Node wireframes (write depth)
     pass.setPipeline(this.wirePipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.draw(pass);
+
+    // 3 — Textured faces (read depth only, blended over wireframes via bias)
+    pass.setPipeline(this.texPipeline);
+    pass.setBindGroup(0, this.sharedBindGroup);
+    for (const node of scene.nodes) node.drawFaces(pass);
 
     pass.end();
     this.device.queue.submit([encoder.finish()]);
