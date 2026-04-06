@@ -3,6 +3,7 @@ import { Camera } from './camera';
 import { Scene } from './scene';
 import { Node } from './node';
 import { OphanModel } from './models/OphanModel';
+import { OrganicTextureGen } from './OrganicTextureGen';
 import type { vec3 } from './math';
 
 type vec4 = [number, number, number, number];
@@ -38,6 +39,27 @@ async function main(): Promise<void> {
   const model = new OphanModel();
   model.init(renderer.device);
   model.initFaces(renderer.device, renderer.texBindGroupLayout);
+
+  // ── Debug: 2D canvas overlay showing the generated texture ──────────────
+  const dbgCanvas = document.createElement('canvas');
+  dbgCanvas.width = dbgCanvas.height = 256;
+  Object.assign(dbgCanvas.style, {
+    position: 'fixed', bottom: '12px', right: '12px',
+    width: '180px', height: '180px',
+    border: '1px solid rgba(255,255,255,0.3)',
+    pointerEvents: 'none',
+    fontFamily: 'monospace',
+  });
+  document.body.appendChild(dbgCanvas);
+  const ctx2d = dbgCanvas.getContext('2d')!;
+  const pixels = new OrganicTextureGen(0xB4B1A6E).render(256, 'cellular');
+  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
+  ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx2d.fillRect(0, 0, 256, 20);
+  ctx2d.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx2d.font = '11px monospace';
+  ctx2d.fillText('texture 1/1 · cellular · 256²', 6, 14);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const positions = fibonacciSphere(NODE_COUNT, SCENE_RADIUS);
   const nodes = positions.map((pos, i) => {
