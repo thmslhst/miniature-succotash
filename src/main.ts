@@ -2,9 +2,7 @@ import { Renderer } from './renderer';
 import { Camera } from './camera';
 import { Scene } from './scene';
 import { Node } from './node';
-import { ShardModel } from './models/ShardModel';
 import { OphanModel } from './models/OphanModel';
-import { MandalaMdl } from './models/MandalaMdl';
 import type { vec3 } from './math';
 
 type vec4 = [number, number, number, number];
@@ -12,11 +10,7 @@ type vec4 = [number, number, number, number];
 const NODE_COUNT   = 12;
 const SCENE_RADIUS = 5.0;
 
-const COLORS: vec4[] = [
-  [0.06, 0.06, 0.06, 1.0], // ShardModel
-  [0.06, 0.06, 0.06, 1.0], // OphanModel
-  [0.06, 0.06, 0.06, 1.0], // MandalaMdl
-];
+const COLOR: vec4 = [0.06, 0.06, 0.06, 1.0];
 
 function fibonacciSphere(n: number, r: number): vec3[] {
   const phi = Math.PI * (3 - Math.sqrt(5)); // golden angle
@@ -41,12 +35,12 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  const models = [new ShardModel(), new OphanModel(), new MandalaMdl()];
-  for (const m of models) m.init(renderer.device);
+  const model = new OphanModel();
+  model.init(renderer.device);
 
   const positions = fibonacciSphere(NODE_COUNT, SCENE_RADIUS);
   const nodes = positions.map((pos, i) => {
-    const node = new Node(models[i % 3], pos, COLORS[i % 3], i * 1.7);
+    const node = new Node(model, pos, COLOR, i * 1.7);
     node.init(renderer.device, renderer.nodeBindGroupLayout);
     return node;
   });
