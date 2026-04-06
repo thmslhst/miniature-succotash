@@ -70,7 +70,7 @@ export class Renderer {
       },
       fragment: { module: wireMod, entryPoint: 'fs', targets: [{ format: this.canvasFormat }] },
       primitive:    { topology: 'line-list' },
-      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less-equal' },
     });
 
     // Connection pipeline — per-vertex alpha, no depth write
@@ -116,9 +116,7 @@ export class Renderer {
         }}],
       },
       primitive:    { topology: 'triangle-list', cullMode: 'none' },
-      // Depth bias pushes faces back so wireframe edges always win
-      depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal',
-                      depthBias: 2, depthBiasSlopeScale: 1.0 },
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
     });
 
     // Shared view/proj uniform
@@ -163,15 +161,15 @@ export class Renderer {
       pass.draw(connCount * 2);
     }
 
-    // 2 — Node wireframes (write depth)
-    pass.setPipeline(this.wirePipeline);
-    pass.setBindGroup(0, this.sharedBindGroup);
-    for (const node of scene.nodes) node.draw(pass);
-
-    // 3 — Textured faces (read depth only, blended over wireframes via bias)
+    // 2 — Textured faces (no depth write, always-pass — depth buffer still clear here)
     pass.setPipeline(this.texPipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.drawFaces(pass);
+
+    // 3 — Node wireframes (write depth, draw on top of faces)
+    pass.setPipeline(this.wirePipeline);
+    pass.setBindGroup(0, this.sharedBindGroup);
+    for (const node of scene.nodes) node.draw(pass);
 
     pass.end();
     this.device.queue.submit([encoder.finish()]);

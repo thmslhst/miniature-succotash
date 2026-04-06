@@ -77,6 +77,42 @@ function ringFaces(r: number, w: number, n: number, ua: vec3, ub: vec3, out: num
     vtx(out, i0[0], i0[1], i0[2], u0, 0); vtx(out, o1[0], o1[1], o1[2], u1, 1); vtx(out, i1[0], i1[1], i1[2], u1, 0);
   }
 }
+function spokeFaces(r: number, n: number, ua: vec3, ub: vec3, w: number, out: number[]): void {
+  const hw = w * 0.5;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, c = Math.cos(a), s = Math.sin(a);
+    const dx = ua[0]*c+ub[0]*s, dy = ua[1]*c+ub[1]*s, dz = ua[2]*c+ub[2]*s;
+    const px = -ua[0]*s+ub[0]*c, py = -ua[1]*s+ub[1]*c, pz = -ua[2]*s+ub[2]*c;
+    vtx(out,  px*hw,       py*hw,       pz*hw,       0, 0); vtx(out, dx*r+px*hw, dy*r+py*hw, dz*r+pz*hw, 1, 0);
+    vtx(out, -px*hw,      -py*hw,      -pz*hw,       0, 1); vtx(out, dx*r+px*hw, dy*r+py*hw, dz*r+pz*hw, 1, 0);
+    vtx(out,  dx*r-px*hw,  dy*r-py*hw,  dz*r-pz*hw,  1, 1); vtx(out, -px*hw, -py*hw, -pz*hw, 0, 1);
+  }
+}
+function gearToothFaces(r: number, n: number, ua: vec3, ub: vec3, out: number[]): void {
+  const tipR = r + 0.13, hw = 0.045;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU;
+    const tip = [(ua[0]*Math.cos(a)  +ub[0]*Math.sin(a)  )*tipR, (ua[1]*Math.cos(a)  +ub[1]*Math.sin(a)  )*tipR, (ua[2]*Math.cos(a)  +ub[2]*Math.sin(a)  )*tipR];
+    const bL  = [(ua[0]*Math.cos(a-hw)+ub[0]*Math.sin(a-hw))*r,   (ua[1]*Math.cos(a-hw)+ub[1]*Math.sin(a-hw))*r,   (ua[2]*Math.cos(a-hw)+ub[2]*Math.sin(a-hw))*r  ];
+    const bR  = [(ua[0]*Math.cos(a+hw)+ub[0]*Math.sin(a+hw))*r,   (ua[1]*Math.cos(a+hw)+ub[1]*Math.sin(a+hw))*r,   (ua[2]*Math.cos(a+hw)+ub[2]*Math.sin(a+hw))*r  ];
+    vtx(out, bL[0],bL[1],bL[2], 0,0); vtx(out, tip[0],tip[1],tip[2], 0.5,1); vtx(out, bR[0],bR[1],bR[2], 1,0);
+  }
+}
+function eyeFaces(r: number, n: number, ua: vec3, ub: vec3, out: number[]): void {
+  const sz = 0.072;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, c = Math.cos(a), s = Math.sin(a);
+    const p: vec3  = [(ua[0]*c+ub[0]*s)*r, (ua[1]*c+ub[1]*s)*r, (ua[2]*c+ub[2]*s)*r];
+    const ta: vec3 = [-ua[0]*s+ub[0]*c,    -ua[1]*s+ub[1]*c,    -ua[2]*s+ub[2]*c   ];
+    const tb: vec3 = [ ua[0]*c+ub[0]*s,     ua[1]*c+ub[1]*s,     ua[2]*c+ub[2]*s   ];
+    const T = [p[0]+ta[0]*sz, p[1]+ta[1]*sz, p[2]+ta[2]*sz];
+    const R = [p[0]+tb[0]*sz, p[1]+tb[1]*sz, p[2]+tb[2]*sz];
+    const B = [p[0]-ta[0]*sz, p[1]-ta[1]*sz, p[2]-ta[2]*sz];
+    const L = [p[0]-tb[0]*sz, p[1]-tb[1]*sz, p[2]-tb[2]*sz];
+    vtx(out, T[0],T[1],T[2], 0.5,1); vtx(out, R[0],R[1],R[2], 1,0.5); vtx(out, B[0],B[1],B[2], 0.5,0);
+    vtx(out, T[0],T[1],T[2], 0.5,1); vtx(out, B[0],B[1],B[2], 0.5,0); vtx(out, L[0],L[1],L[2], 0,0.5);
+  }
+}
 function octaFaces(r: number, out: number[]): void {
   const v: vec3[] = [[r,0,0],[-r,0,0],[0,r,0],[0,-r,0],[0,0,r],[0,0,-r]];
   const faces = [[0,2,4],[0,4,3],[0,3,5],[0,5,2],[1,4,2],[1,2,5],[1,5,3],[1,3,4]];
@@ -128,13 +164,26 @@ export class OphanModel extends PlaneModel {
     const S = Math.SQRT1_2;
     const diag: vec3 = [0, S, S];
 
-    // Filled annular bands for each ring (width tuned to look substantial)
+    // Filled annular bands
     ringFaces(1.00, 0.10, 24, X, Z, out);
     ringFaces(0.86, 0.09, 20, X, Y, out);
     ringFaces(0.70, 0.08, 18, Y, Z, out);
     ringFaces(0.52, 0.07, 14, X, diag, out);
 
-    // Central octahedral nucleus, slightly smaller to sit inside edge lines
+    // Gear teeth on outer ring
+    gearToothFaces(1.00, 18, X, Z, out);
+
+    // Spokes
+    spokeFaces(1.00,  8, X, Z, 0.06, out);
+    spokeFaces(0.86,  8, X, Y, 0.05, out);
+
+    // Eye diamonds on each ring
+    eyeFaces(1.00, 8, X, Z, out);
+    eyeFaces(0.86, 8, X, Y, out);
+    eyeFaces(0.70, 6, Y, Z, out);
+    eyeFaces(0.52, 7, X, diag, out);
+
+    // Central octahedral nucleus
     octaFaces(0.18, out);
 
     return new Float32Array(out);

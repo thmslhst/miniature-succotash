@@ -32,11 +32,6 @@ fn vs(
 
 @fragment
 fn fs(in : VOut) -> @location(0) vec4<f32> {
-  let tex   = textureSample(orgTexture, orgSampler, in.uv);
-  // Luminance-driven alpha: bright areas of organic texture are more opaque.
-  // node.color.a controls overall face opacity; RGB is not used as a tint so
-  // the organic colours render at full intensity.
-  let lum   = tex.r * 0.25 + tex.g * 0.60 + tex.b * 0.15;
-  let alpha  = clamp(lum * 1.4, 0.0, 1.0) * 0.78 * node.color.a;
-  return vec4<f32>(tex.rgb, alpha);
+  let tex = textureSample(orgTexture, orgSampler, in.uv);
+  return vec4<f32>(tex.rgb, node.color.a);
 }
