@@ -14,6 +14,8 @@ export class Renderer {
   nodeBindGroupLayout!: GPUBindGroupLayout;
   texBindGroupLayout!:  GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for model faces
 
+  connTextureBindGroup: GPUBindGroup | null = null;
+
   private context!: GPUCanvasContext;
   private wirePipeline!:  GPURenderPipeline;
   private connPipeline!:  GPURenderPipeline;
@@ -74,22 +76,23 @@ export class Renderer {
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less-equal' },
     });
 
-    // Connection pipeline — per-vertex alpha, no depth write
+    // Connection pipeline — textured, per-vertex alpha, no depth write
     const connMod = this.device.createShaderModule({ code: connectionWGSL });
     this.connPipeline = this.device.createRenderPipeline({
-      layout: this.device.createPipelineLayout({ bindGroupLayouts: [bgl0] }),
+      layout: this.device.createPipelineLayout({ bindGroupLayouts: [bgl0, this.texBindGroupLayout] }),
       vertex: {
         module: connMod, entryPoint: 'vs',
-        buffers: [{ arrayStride: 16, attributes: [
-          { shaderLocation: 0, offset: 0,  format: 'float32x3' },
-          { shaderLocation: 1, offset: 12, format: 'float32'   },
+        buffers: [{ arrayStride: 24, attributes: [
+          { shaderLocation: 0, offset: 0,  format: 'float32x3' },  // pos
+          { shaderLocation: 1, offset: 12, format: 'float32x2' },  // uv
+          { shaderLocation: 2, offset: 20, format: 'float32'   },  // alpha
         ]}],
       },
       fragment: {
         module: connMod, entryPoint: 'fs',
         targets: [{ format: this.canvasFormat, blend: {
-          color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-          alpha: { srcFactor: 'one',       dstFactor: 'zero',                operation: 'add' },
+          color: { srcFactor: 'src-alpha', dstFactor: 'one', operation: 'add' },
+          alpha: { srcFactor: 'one',       dstFactor: 'one', operation: 'add' },
         }}],
       },
       primitive:    { topology: 'line-list' },
@@ -152,12 +155,13 @@ export class Renderer {
       },
     });
 
-    // 1 — Connections (no depth, always through)
+    // 1 — Connections (textured, no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch, t);
-    if (connCount > 0) {
+    if (connCount > 0 && this.connTextureBindGroup) {
       this.device.queue.writeBuffer(this.connVertexBuffer, 0, this.connScratch.subarray(0, connCount * FLOATS_PER_CONN));
       pass.setPipeline(this.connPipeline);
       pass.setBindGroup(0, this.sharedBindGroup);
+      pass.setBindGroup(1, this.connTextureBindGroup);
       pass.setVertexBuffer(0, this.connVertexBuffer);
       pass.draw(connCount * VERTS_PER_CONN);
     }

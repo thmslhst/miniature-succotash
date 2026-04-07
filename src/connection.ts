@@ -2,10 +2,10 @@ import type { Node } from './node';
 
 export const CONNECTION_RADIUS = 8.0;
 
-// 12 line segments per connection → 24 vertices (line-list) × 4 floats (xyz + alpha)
+// 12 line segments per connection → 24 vertices (line-list) × 6 floats (xyz + uv + alpha)
 const SEGMENTS = 12;
 export const VERTS_PER_CONN  = SEGMENTS * 2;
-export const FLOATS_PER_CONN = VERTS_PER_CONN * 4;
+export const FLOATS_PER_CONN = VERTS_PER_CONN * 6;
 
 export class Connection {
   readonly a: Node;
@@ -29,7 +29,8 @@ export class Connection {
     const d = this.dist();
     if (d >= CONNECTION_RADIUS) return 0;
     const t = 1 - d / CONNECTION_RADIUS;
-    return (1 - entropy) * 0.92 * t * t + entropy * 0.60 * t;
+    // Linear falloff — quadratic was too aggressive at medium distances
+    return (1 - entropy) * 0.9 * t + entropy * 0.65 * t;
   }
 
   // Writes FLOATS_PER_CONN floats into buf starting at offset.
@@ -85,30 +86,36 @@ export class Connection {
     const pulseSpeed = 0.0025; // rad/ms
     const pulseFreq  = 4.5;
 
-    const computeAlpha = (u: number): number => {
-      const w1 = Math.max(0, Math.sin(u * Math.PI * pulseFreq - t * pulseSpeed + s));
-      const w2 = Math.max(0, Math.sin(u * Math.PI * pulseFreq * 0.6 + t * pulseSpeed * 0.7 + s * 1.4)) * 0.4;
-      return baseAlpha * (0.15 + 0.85 * (w1 * 0.7 + w2));
+    // UV: u scrolls slowly with time (organic drift), tiles 2× along the connection
+    //     v varies per connection to sample a different horizontal band of the texture
+    const uScroll = t * 0.00018 + s * 0.15;
+    const vBand   = 0.25 + (Math.sin(s * 7.3) * 0.5 + 0.5) * 0.5; // 0.25 → 0.75
+
+    const computeVertex = (curveT: number): [number, number, number, number, number, number] => {
+      const mu = 1 - curveT;
+      const ca = mu*mu*mu, cb = 3*mu*mu*curveT, cc = 3*mu*curveT*curveT, cd = curveT*curveT*curveT;
+      const x = ca*p0x + cb*p1x + cc*p2x + cd*p3x;
+      const y = ca*p0y + cb*p1y + cc*p2y + cd*p3y;
+      const z = ca*p0z + cb*p1z + cc*p2z + cd*p3z;
+      const texU = curveT * 2.5 + uScroll;
+      const texV = vBand + Math.sin(curveT * Math.PI * 2 + s) * 0.08;
+      const w1 = Math.max(0, Math.sin(curveT * Math.PI * pulseFreq - t * pulseSpeed + s));
+      const w2 = Math.max(0, Math.sin(curveT * Math.PI * pulseFreq * 0.6 + t * pulseSpeed * 0.7 + s * 1.4)) * 0.4;
+      const alpha = baseAlpha * (0.65 + 0.35 * (w1 * 0.7 + w2));
+      return [x, y, z, texU, texV, alpha];
     };
 
     // Walk the curve keeping previous sample to form line-list segments
-    let prevAlpha = computeAlpha(0);
-    let prevX = p0x, prevY = p0y, prevZ = p0z;
+    let prev = computeVertex(0);
 
     for (let i = 1; i <= SEGMENTS; i++) {
-      const u = i / SEGMENTS;
-      const mu = 1 - u;
-      const a = mu*mu*mu, b = 3*mu*mu*u, c = 3*mu*u*u, d = u*u*u;
-      const x = a*p0x + b*p1x + c*p2x + d*p3x;
-      const y = a*p0y + b*p1y + c*p2y + d*p3y;
-      const z = a*p0z + b*p1z + c*p2z + d*p3z;
-      const alpha = computeAlpha(u);
-
-      const o = offset + (i - 1) * 8;
-      buf[o+0] = prevX;  buf[o+1] = prevY;  buf[o+2] = prevZ;  buf[o+3] = prevAlpha;
-      buf[o+4] = x;      buf[o+5] = y;      buf[o+6] = z;      buf[o+7] = alpha;
-
-      prevX = x; prevY = y; prevZ = z; prevAlpha = alpha;
+      const cur = computeVertex(i / SEGMENTS);
+      const o = offset + (i - 1) * 12; // 2 verts × 6 floats = 12 floats per segment
+      buf[o+0]  = prev[0]; buf[o+1]  = prev[1]; buf[o+2]  = prev[2];
+      buf[o+3]  = prev[3]; buf[o+4]  = prev[4]; buf[o+5]  = prev[5];
+      buf[o+6]  = cur[0];  buf[o+7]  = cur[1];  buf[o+8]  = cur[2];
+      buf[o+9]  = cur[3];  buf[o+10] = cur[4];  buf[o+11] = cur[5];
+      prev = cur;
     }
   }
 }

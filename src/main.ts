@@ -71,6 +71,7 @@ async function main(): Promise<void> {
   const model = new OphanModel();
   model.init(renderer.device);
   model.initFaces(renderer.device, renderer.texBindGroupLayout);
+  renderer.connTextureBindGroup = model.faceBindGroup;
 
   // ── Debug: 2D canvas overlay showing the generated texture ──────────────
   const dbgCanvas = document.createElement('canvas');
