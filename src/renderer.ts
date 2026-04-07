@@ -5,8 +5,8 @@ import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
 
-// 12 nodes → max 66 connections (12*11/2); each = 2 vertices × 4 floats
-const MAX_CONNECTIONS = 66;
+// 16 nodes → max 120 connections (16*15/2); each = 2 vertices × 4 floats
+const MAX_CONNECTIONS = 120;
 
 export class Renderer {
   device!: GPUDevice;
