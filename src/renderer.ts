@@ -4,8 +4,9 @@ import texturedWGSL   from './shaders/textured.wgsl?raw';
 import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
+import { FLOATS_PER_CONN, VERTS_PER_CONN } from './connection';
 
-// 16 nodes → max 120 connections (16*15/2); each = 2 vertices × 4 floats
+// 16 nodes → max 120 connections (16*15/2)
 const MAX_CONNECTIONS = 120;
 
 export class Renderer {
@@ -20,7 +21,7 @@ export class Renderer {
   private sharedUniformBuffer!: GPUBuffer;
   private sharedBindGroup!: GPUBindGroup;
   private connVertexBuffer!: GPUBuffer;
-  private connScratch = new Float32Array(MAX_CONNECTIONS * 8);
+  private connScratch = new Float32Array(MAX_CONNECTIONS * FLOATS_PER_CONN);
   private depthTexture!: GPUTexture;
   private canvasFormat!: GPUTextureFormat;
 
@@ -130,11 +131,11 @@ export class Renderer {
 
     // Dynamic connection vertex buffer
     this.connVertexBuffer = this.device.createBuffer({
-      size: MAX_CONNECTIONS * 8 * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      size: MAX_CONNECTIONS * FLOATS_PER_CONN * 4, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
   }
 
-  frame(scene: Scene, camera: Camera, _t: number): void {
+  frame(scene: Scene, camera: Camera, t: number): void {
     const viewProj = mat4Multiply(camera.projMatrix(), camera.viewMatrix());
     this.device.queue.writeBuffer(this.sharedUniformBuffer, 0, viewProj);
 
@@ -152,13 +153,13 @@ export class Renderer {
     });
 
     // 1 — Connections (no depth, always through)
-    const connCount = scene.buildConnGeometry(this.connScratch);
+    const connCount = scene.buildConnGeometry(this.connScratch, t);
     if (connCount > 0) {
-      this.device.queue.writeBuffer(this.connVertexBuffer, 0, this.connScratch.subarray(0, connCount * 8));
+      this.device.queue.writeBuffer(this.connVertexBuffer, 0, this.connScratch.subarray(0, connCount * FLOATS_PER_CONN));
       pass.setPipeline(this.connPipeline);
       pass.setBindGroup(0, this.sharedBindGroup);
       pass.setVertexBuffer(0, this.connVertexBuffer);
-      pass.draw(connCount * 2);
+      pass.draw(connCount * VERTS_PER_CONN);
     }
 
     // 2 — Textured faces (no depth write, always-pass — depth buffer still clear here)

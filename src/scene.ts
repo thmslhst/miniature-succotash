@@ -1,5 +1,5 @@
 import type { Node } from './node';
-import { Connection, CONNECTION_RADIUS } from './connection';
+import { Connection, CONNECTION_RADIUS, FLOATS_PER_CONN } from './connection';
 import { integratePhysics } from './physics';
 
 const ENTROPY_RATE  = 0.00004; // per millisecond — entropy rises over ~33 s
@@ -27,11 +27,11 @@ export class Scene {
   }
 
   // Pack active connection geometry into scratch buffer; returns connection count.
-  buildConnGeometry(scratch: Float32Array): number {
+  buildConnGeometry(scratch: Float32Array, t: number): number {
     let off = 0;
     for (const conn of this.connections) {
-      conn.writeGeometry(scratch, off, this.entropy);
-      off += 8;
+      conn.writeGeometry(scratch, off, this.entropy, t);
+      off += FLOATS_PER_CONN;
     }
     return this.connections.length;
   }
