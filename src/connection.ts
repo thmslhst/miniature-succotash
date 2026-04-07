@@ -2,10 +2,10 @@ import type { Node } from './node';
 
 export const CONNECTION_RADIUS = 8.0;
 
-// 12 line segments per connection → 24 vertices (line-list) × 6 floats (xyz + uv + alpha)
+// 12 line segments per connection → 24 vertices (line-list) × 5 floats (xyz + uv)
 const SEGMENTS = 12;
 export const VERTS_PER_CONN  = SEGMENTS * 2;
-export const FLOATS_PER_CONN = VERTS_PER_CONN * 6;
+export const FLOATS_PER_CONN = VERTS_PER_CONN * 5;
 
 export class Connection {
   readonly a: Node;
@@ -18,27 +18,11 @@ export class Connection {
     this.seed = a.physics.seed * 3.141 + b.physics.seed * 1.618;
   }
 
-  dist(): number {
-    const pa = this.a.physics.pos;
-    const pb = this.b.physics.pos;
-    const dx = pa[0] - pb[0], dy = pa[1] - pb[1], dz = pa[2] - pb[2];
-    return Math.sqrt(dx*dx + dy*dy + dz*dz);
-  }
-
-  alpha(entropy: number): number {
-    const d = this.dist();
-    if (d >= CONNECTION_RADIUS) return 0;
-    const t = 1 - d / CONNECTION_RADIUS;
-    // Linear falloff — quadratic was too aggressive at medium distances
-    return (1 - entropy) * 0.9 * t + entropy * 0.65 * t;
-  }
-
   // Writes FLOATS_PER_CONN floats into buf starting at offset.
   // t = elapsed time in ms.
   writeGeometry(buf: Float32Array, offset: number, entropy: number, t: number): void {
     const pa = this.a.physics.pos;
     const pb = this.b.physics.pos;
-    const baseAlpha = this.alpha(entropy);
 
     const dx = pb[0] - pa[0], dy = pb[1] - pa[1], dz = pb[2] - pa[2];
     const len = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
@@ -82,16 +66,12 @@ export class Connection {
     const p2z = pa[2] + dz*0.67 + pz*o2p + qz*o2q;
     const p3x = pb[0], p3y = pb[1], p3z = pb[2];
 
-    // Neural pulse: two traveling waves (forward + faint reverse) for a living, firing feel
-    const pulseSpeed = 0.0025; // rad/ms
-    const pulseFreq  = 4.5;
-
-    // UV: u scrolls slowly with time (organic drift), tiles 2× along the connection
+    // UV: u scrolls slowly with time (organic drift), tiles along the connection
     //     v varies per connection to sample a different horizontal band of the texture
     const uScroll = t * 0.00018 + s * 0.15;
     const vBand   = 0.25 + (Math.sin(s * 7.3) * 0.5 + 0.5) * 0.5; // 0.25 → 0.75
 
-    const computeVertex = (curveT: number): [number, number, number, number, number, number] => {
+    const computeVertex = (curveT: number): [number, number, number, number, number] => {
       const mu = 1 - curveT;
       const ca = mu*mu*mu, cb = 3*mu*mu*curveT, cc = 3*mu*curveT*curveT, cd = curveT*curveT*curveT;
       const x = ca*p0x + cb*p1x + cc*p2x + cd*p3x;
@@ -99,10 +79,7 @@ export class Connection {
       const z = ca*p0z + cb*p1z + cc*p2z + cd*p3z;
       const texU = curveT * 2.5 + uScroll;
       const texV = vBand + Math.sin(curveT * Math.PI * 2 + s) * 0.08;
-      const w1 = Math.max(0, Math.sin(curveT * Math.PI * pulseFreq - t * pulseSpeed + s));
-      const w2 = Math.max(0, Math.sin(curveT * Math.PI * pulseFreq * 0.6 + t * pulseSpeed * 0.7 + s * 1.4)) * 0.4;
-      const alpha = baseAlpha * (0.65 + 0.35 * (w1 * 0.7 + w2));
-      return [x, y, z, texU, texV, alpha];
+      return [x, y, z, texU, texV];
     };
 
     // Walk the curve keeping previous sample to form line-list segments
@@ -110,11 +87,11 @@ export class Connection {
 
     for (let i = 1; i <= SEGMENTS; i++) {
       const cur = computeVertex(i / SEGMENTS);
-      const o = offset + (i - 1) * 12; // 2 verts × 6 floats = 12 floats per segment
-      buf[o+0]  = prev[0]; buf[o+1]  = prev[1]; buf[o+2]  = prev[2];
-      buf[o+3]  = prev[3]; buf[o+4]  = prev[4]; buf[o+5]  = prev[5];
-      buf[o+6]  = cur[0];  buf[o+7]  = cur[1];  buf[o+8]  = cur[2];
-      buf[o+9]  = cur[3];  buf[o+10] = cur[4];  buf[o+11] = cur[5];
+      const o = offset + (i - 1) * 10; // 2 verts × 5 floats = 10 floats per segment
+      buf[o+0] = prev[0]; buf[o+1] = prev[1]; buf[o+2] = prev[2];
+      buf[o+3] = prev[3]; buf[o+4] = prev[4];
+      buf[o+5] = cur[0];  buf[o+6] = cur[1];  buf[o+7] = cur[2];
+      buf[o+8] = cur[3];  buf[o+9] = cur[4];
       prev = cur;
     }
   }

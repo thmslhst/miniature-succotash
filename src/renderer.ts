@@ -82,18 +82,14 @@ export class Renderer {
       layout: this.device.createPipelineLayout({ bindGroupLayouts: [bgl0, this.texBindGroupLayout] }),
       vertex: {
         module: connMod, entryPoint: 'vs',
-        buffers: [{ arrayStride: 24, attributes: [
+        buffers: [{ arrayStride: 20, attributes: [
           { shaderLocation: 0, offset: 0,  format: 'float32x3' },  // pos
           { shaderLocation: 1, offset: 12, format: 'float32x2' },  // uv
-          { shaderLocation: 2, offset: 20, format: 'float32'   },  // alpha
         ]}],
       },
       fragment: {
         module: connMod, entryPoint: 'fs',
-        targets: [{ format: this.canvasFormat, blend: {
-          color: { srcFactor: 'src-alpha', dstFactor: 'one', operation: 'add' },
-          alpha: { srcFactor: 'one',       dstFactor: 'one', operation: 'add' },
-        }}],
+        targets: [{ format: this.canvasFormat }],
       },
       primitive:    { topology: 'line-list' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' },
