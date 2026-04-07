@@ -84,6 +84,7 @@ async function main(): Promise<void> {
     prev = now;
     camera.tick(dt);
     scene.tick(dt, now);
+    model.tick(renderer.device, now);
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
   }
