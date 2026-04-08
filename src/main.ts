@@ -2,7 +2,7 @@ import { Renderer } from './renderer';
 import { Camera } from './camera';
 import { Scene } from './scene';
 import { Node } from './node';
-import { OphanModel } from './models/OphanModel';
+import { LurkerModel } from './models/LurkerModel';
 import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
 import type { vec3 } from './math';
 
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  const model = new OphanModel();
+  const model = new LurkerModel();
   model.init(renderer.device);
   model.initFaces(renderer.device, renderer.texBindGroupLayout);
   renderer.connTextureBindGroup = model.faceBindGroup;
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
   ctx2d.fillRect(0, 0, 256, 20);
   ctx2d.fillStyle = 'rgba(255,255,255,0.85)';
   ctx2d.font = '11px monospace';
-  ctx2d.fillText('texture 1/1 · cellular · 256²', 6, 14);
+  ctx2d.fillText('texture 1/1 · membrane · 256²', 6, 14);
   // ─────────────────────────────────────────────────────────────────────────
 
   const nodes = NODES.map((pos, i) => {
