@@ -1,5 +1,5 @@
 import { PlaneModel } from './PlaneModel';
-import { OrganicTextureGen, type OrgVariant } from '../OrganicTextureGen';
+import { OrganicTextureGen, PAGE_SEED, type OrgVariant } from '../OrganicTextureGen';
 import type { vec3 } from '../math';
 import {
   rotateBasis, rotVecY, rotVecX,
@@ -21,7 +21,7 @@ export class OphanModel extends PlaneModel {
   private scratchFaces: Float32Array | null = null;
 
   protected faceTextureVariant(): OrgVariant { return 'cellular'; }
-  protected faceTextureSeed():    number      { return 0xB4B1A6E; }
+  protected faceTextureSeed():    number      { return PAGE_SEED; }
 
   override init(device: GPUDevice): void {
     const data = this.buildEdges();

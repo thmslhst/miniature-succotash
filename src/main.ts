@@ -3,7 +3,7 @@ import { Camera } from './camera';
 import { Scene } from './scene';
 import { Node } from './node';
 import { OphanModel } from './models/OphanModel';
-import { OrganicTextureGen } from './OrganicTextureGen';
+import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
 import type { vec3 } from './math';
 
 type vec4 = [number, number, number, number];
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
   });
   document.body.appendChild(dbgCanvas);
   const ctx2d = dbgCanvas.getContext('2d')!;
-  const pixels = new OrganicTextureGen(0xB4B1A6E).render(256, 'cellular');
+  const pixels = new OrganicTextureGen(PAGE_SEED).render(256, 'cellular');
   ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
   ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
   ctx2d.fillRect(0, 0, 256, 20);

@@ -1,6 +1,8 @@
 // OrganicTextureGen — CPU-side procedural organic textures → GPUTexture
-// Three variants: cellular (voronoi cell walls), veins (domain-warped fbm),
-// membrane (voronoi-modulated fbm, biological tissue).
+// Three cloud variants: soft (layered fbm), cumulus (domain-warped), nebula (ridge-layered).
+// PAGE_SEED is randomised once per load so the texture is never the same across reloads.
+
+export const PAGE_SEED: number = (Math.random() * 0xFFFFFFFF) >>> 0;
 
 export type OrgVariant = 'cellular' | 'veins' | 'membrane';
 
@@ -51,59 +53,43 @@ export class OrganicTextureGen {
     return v / n;
   }
 
-  private voronoi(x: number, y: number): [number, number] {
-    const xi = Math.floor(x), yi = Math.floor(y);
-    let d1 = 9, d2 = 9;
-    for (let dy = -2; dy <= 2; dy++) {
-      for (let dx = -2; dx <= 2; dx++) {
-        const cx = xi + dx, cy = yi + dy;
-        const fx = cx + this.h(((cx % 256) + 256) % 256, ((cy % 256) + 256) % 256);
-        const fy = cy + this.h(((cy + 113) % 256 + 256) % 256, ((cx % 256) + 256) % 256);
-        const d = Math.sqrt((x - fx) ** 2 + (y - fy) ** 2);
-        if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
-      }
-    }
-    return [d1, d2];
-  }
-
   private samplePixel(u: number, v: number, variant: OrgVariant): [number, number, number] {
-    const sc = 5.0;
 
     if (variant === 'cellular') {
-      const [d1, d2] = this.voronoi(u * sc, v * sc);
-      // Bright narrow cell walls on dark interior
-      const edge = clamp01(1 - (d2 - d1) * 9);
-      const glow = clamp01(1 - d1 * 2.8) * 0.18;
-      const t = clamp01(Math.pow(edge, 2.2) * 0.9 + glow);
+      // Soft layered clouds — cool blue-white palette
+      const sc = 3.2;
+      const f = this.fbm(u * sc, v * sc, 7);
+      const t = clamp01(Math.pow(f, 0.75));
       return [
-        Math.floor(lerp(3,  120, Math.pow(t, 1.3))),
-        Math.floor(lerp(5,  235, Math.pow(t, 0.75))),
-        Math.floor(lerp(18, 205, Math.pow(t, 0.85))),
+        Math.floor(lerp(8,   210, Math.pow(t, 1.1))),
+        Math.floor(lerp(14,  230, Math.pow(t, 0.85))),
+        Math.floor(lerp(35,  255, Math.pow(t, 0.70))),
       ];
     }
 
     if (variant === 'veins') {
-      // Domain-warped FBM: fibrous, stretched vein channels
-      const wx = this.fbm(u * sc + 0.3, v * sc + 0.7, 4) * 2.2;
-      const wy = this.fbm(u * sc + 5.1, v * sc + 1.9, 4) * 2.2;
+      // Domain-warped cumulus — warm amber/cream palette
+      const sc = 4.0;
+      const wx = this.fbm(u * sc + 0.3, v * sc + 0.7, 4) * 2.0;
+      const wy = this.fbm(u * sc + 5.1, v * sc + 1.9, 4) * 2.0;
       const f  = this.fbm(u * sc + wx, v * sc + wy, 7);
-      const t  = clamp01(Math.pow(f, 0.65));
+      const t  = clamp01(Math.pow(f, 0.80));
       return [
-        Math.floor(lerp(5,  245, Math.pow(t, 1.7))),
-        Math.floor(lerp(2,  145, Math.pow(t, 2.3))),
-        Math.floor(lerp(1,  25,  Math.pow(t, 3.1))),
+        Math.floor(lerp(20,  255, Math.pow(t, 0.90))),
+        Math.floor(lerp(10,  210, Math.pow(t, 1.10))),
+        Math.floor(lerp(2,   100, Math.pow(t, 1.80))),
       ];
     }
 
-    // membrane: voronoi distorts fbm → biological tissue / ectoplasm
-    const [d1] = this.voronoi(u * sc * 1.5, v * sc * 1.5);
-    const warp = d1 * 1.4;
-    const f = this.fbm(u * sc + warp, v * sc + warp * 0.55, 7);
-    const t = clamp01(f * (1 - d1 * 0.65) + d1 * 0.08);
+    // membrane: ridge-layered nebula — deep teal / indigo palette
+    const sc = 3.5;
+    const f1 = this.fbm(u * sc,       v * sc,       6);
+    const f2 = this.fbm(u * sc * 1.9 + f1 * 1.2, v * sc * 1.9 + f1 * 0.7, 5);
+    const t  = clamp01(f1 * 0.55 + f2 * 0.45);
     return [
-      Math.floor(lerp(2,  55,  Math.pow(t, 1.6))),
-      Math.floor(lerp(7,  215, Math.pow(t, 0.72))),
-      Math.floor(lerp(18, 250, Math.pow(t, 0.60))),
+      Math.floor(lerp(4,   80,  Math.pow(t, 1.50))),
+      Math.floor(lerp(10,  200, Math.pow(t, 0.80))),
+      Math.floor(lerp(25,  255, Math.pow(t, 0.60))),
     ];
   }
 
